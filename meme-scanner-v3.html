@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Solana Meme Scanner</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#262b36;--text:#e8ebf1;--muted:#8a93a6;--good:#2fbf71;--warn:#e0a526;--bad:#e5484d;--acc:#7c8cff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:20px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:20px;margin:0}
+main{padding:16px;display:grid;gap:20px;max-width:1400px;margin:0 auto}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.sec-head{padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.sec-head h2{font-size:16px;margin:0}
+.sec-head p{margin:2px 0 0;color:var(--muted);font-size:12px}
+form.filters{padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+form.filters>label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:4px;min-width:150px}
+.pair{display:flex;gap:6px}
+.pair input{width:100%;min-width:0;flex:1}
+input,select,button{font:inherit;color:var(--text);background:#0f1115;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:0}
+button{cursor:pointer;background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.ghost{background:transparent;color:var(--text);border-color:var(--line)}
+button.copy{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;font-weight:500;padding:2px 7px;margin-top:4px;background:transparent;color:var(--acc);border:1px solid var(--line)}
+button.copy:hover{border-color:var(--acc)}
+.preset-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;width:100%;padding-top:8px;border-top:1px dashed var(--line)}
+.preset-bar label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:4px;min-width:180px}
+.meta{padding:8px 16px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:820px}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+th:first-child,td:first-child{text-align:left}
+td:last-child,th:last-child{text-align:center}
+.tok{display:flex;gap:10px;align-items:center}
+.tok img,.ph{width:28px;height:28px;border-radius:50%;background:var(--line);flex:none;object-fit:cover}
+.tok small{display:block;color:var(--muted);font-size:11px}
+.up{color:var(--good)}.dn{color:var(--bad)}
+.risk{padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.risk.good{background:rgba(47,191,113,.15);color:var(--good)}
+.risk.warn{background:rgba(224,165,38,.15);color:var(--warn)}
+.risk.bad{background:rgba(229,72,77,.15);color:var(--bad)}
+a{color:var(--acc)}
+.empty{text-align:center;color:var(--muted);padding:24px}
+.status{color:var(--muted);font-size:12px}
+.status.err{color:var(--bad)}
+footer{padding:0 16px 24px;color:var(--muted);font-size:12px;max-width:1400px;margin:0 auto}
+@media (max-width:600px){form.filters>label{min-width:100%}.preset-bar label{min-width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Solana Meme Scanner</h1>
+    <div class="status" id="global-status">Starting…</div>
+  </div>
+  <div><button class="ghost" id="refresh-all">Refresh all</button></div>
+</header>
+
+<main>
+  <section id="sec-launch">
+    <div class="sec-head">
+      <div><h2>New pairs</h2><p>Recently profiled Solana tokens, filtered by age and early activity.</p></div>
+      <div class="status" id="st-launch"></div>
+    </div>
+    <form class="filters" id="f-launch" autocomplete="off"></form>
+    <div class="meta"><span id="c-launch"></span><span>Auto-refresh every 50s</span></div>
+    <div class="wrap"><table>
+      <thead><tr><th>Token</th><th>Price</th><th>1h</th><th>1h vol</th><th>Liquidity</th><th>Mkt cap</th><th>Age</th><th>Risk</th><th>Chart</th></tr></thead>
+      <tbody id="b-launch"></tbody>
+    </table></div>
+  </section>
+
+  <section id="sec-trend">
+    <div class="sec-head">
+      <div><h2>Trending</h2><p>Top boosted Solana tokens, filtered by momentum and size.</p></div>
+      <div class="status" id="st-trend"></div>
+    </div>
+    <form class="filters" id="f-trend" autocomplete="off"></form>
+    <div class="meta"><span id="c-trend"></span><span>Auto-refresh every 50s · Risk flags are heuristics, not safety verdicts</span></div>
+    <div class="wrap"><table>
+      <thead><tr><th>Token</th><th>Price</th><th>1h</th><th>24h vol</th><th>Liquidity</th><th>Mkt cap</th><th>Age</th><th>Risk</th><th>Chart</th></tr></thead>
+      <tbody id="b-trend"></tbody>
+    </table></div>
+  </section>
+</main>
+
+<footer>
+  Data from DexScreener public endpoints. Risk flags: liquidity under $10k, under 1h old, sell-heavy last hour, or 1h volume more than 5x liquidity. Not financial advice; always verify before trading.
+</footer>
+
+<script>
+const REFRESH_MS = 50000; // auto-refresh interval for both sections
+
+const $ = s => document.querySelector(s);
+const usd = n => (n == null || isNaN(n)) ? '–' : '$' + Number(n).toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 2 });
+const pct = n => (n == null || isNaN(n)) ? '–' : (n > 0 ? '+' : '') + Number(n).toFixed(1) + '%';
+const ageLabel = ms => {
+  const m = (Date.now() - ms) / 60000;
+  if (m < 60) return Math.max(0, Math.floor(m)) + 'm';
+  if (m < 1440) return Math.floor(m / 60) + 'h';
+  return Math.floor(m / 1440) + 'd';
+};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const shortAddr = a => a.slice(0, 6) + '…' + a.slice(-4);
+const tx1h = p => (p.txns?.h1?.buys || 0) + (p.txns?.h1?.sells || 0);
+const ageH = p => (Date.now() - p.pairCreatedAt) / 3600000;
+
+// Each section is described once here; the filter form is built from this.
+// Range filters: "get" returns the value to compare, min/max are optional.
+const SECTIONS = {
+  launch: {
+    ranges: [
+      { key: 'age', label: 'Age (hours)', step: '0.5', get: ageH },
+      { key: 'liq', label: 'Liquidity ($)', step: '1000', get: p => p.liquidity?.usd || 0 },
+      { key: 'vol', label: '1h volume ($)', step: '1000', get: p => p.volume?.h1 || 0 },
+      { key: 'tx', label: '1h txns', step: '1', get: tx1h }
+    ],
+    sorts: [
+      ['age', 'Newest first', p => p.pairCreatedAt],
+      ['liq', 'Liquidity', p => p.liquidity?.usd || 0],
+      ['vol', '1h volume', p => p.volume?.h1 || 0],
+      ['chg', '1h change', p => p.priceChange?.h1 || 0]
+    ]
+  },
+  trend: {
+    ranges: [
+      { key: 'chg', label: '1h change (%)', step: '1', get: p => p.priceChange?.h1 ?? 0 },
+      { key: 'vol', label: '24h volume ($)', step: '1000', get: p => p.volume?.h24 || 0 },
+      { key: 'liq', label: 'Liquidity ($)', step: '1000', get: p => p.liquidity?.usd || 0 },
+      { key: 'mcap', label: 'Market cap ($)', step: '1000', get: p => p.marketCap || p.fdv || 0 },
+      { key: 'tx', label: '1h txns', step: '1', get: tx1h }
+    ],
+    sorts: [
+      ['vol', '24h volume', p => p.volume?.h24 || 0],
+      ['liq', 'Liquidity', p => p.liquidity?.usd || 0],
+      ['chg', '1h change', p => p.priceChange?.h1 || 0],
+      ['mc', 'Market cap', p => p.marketCap || p.fdv || 0],
+      ['age', 'Newest first', p => p.pairCreatedAt]
+    ]
+  }
+};
+
+const state = { launch: [], trend: [] };
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} returned ${r.status}`);
+  return r.json();
+}
+
+// Fetch pair data for token addresses; keep the most liquid pair per token.
+async function pairsFor(addresses) {
+  const best = new Map();
+  for (let i = 0; i < addresses.length; i += 30) {
+    const chunk = addresses.slice(i, i + 30);
+    try {
+      const data = await getJSON(`https://api.dexscreener.com/tokens/v1/solana/${chunk.join(',')}`);
+      for (const p of data) {
+        const a = p.baseToken.address;
+        const cur = best.get(a);
+        if (!cur || (p.liquidity?.usd || 0) > (cur.liquidity?.usd || 0)) best.set(a, p);
+      }
+    } catch (e) {
+      // Skip this chunk and keep going with the rest
+    }
+  }
+  return [...best.values()];
+}
+
+function setStatus(id, msg, isErr = false) {
+  const el = $(id);
+  el.textContent = msg;
+  el.classList.toggle('err', isErr);
+}
+
+async function loadLaunch() {
+  setStatus('#st-launch', 'Loading…');
+  try {
+    const profiles = await getJSON('https://api.dexscreener.com/token-profiles/latest/v1');
+    const addrs = [...new Set(profiles.filter(p => p.chainId === 'solana').map(p => p.tokenAddress))].slice(0, 90);
+    state.launch = await pairsFor(addrs);
+    setStatus('#st-launch', `Updated (${state.launch.length} new pairs) ${new Date().toLocaleTimeString()}`);
+    render('launch');
+  } catch (e) {
+    console.error(e);
+    setStatus('#st-launch', `Failed: ${e.message}`, true);
+  }
+}
+
+async function loadTrend() {
+  setStatus('#st-trend', 'Loading…');
+  try {
+    const boosts = await getJSON('https://api.dexscreener.com/token-boosts/top/v1');
+    const addrs = [...new Set(boosts.filter(b => b.chainId === 'solana').map(b => b.tokenAddress))].slice(0, 90);
+    state.trend = await pairsFor(addrs);
+    setStatus('#st-trend', `Updated (${state.trend.length} trending) ${new Date().toLocaleTimeString()}`);
+    render('trend');
+  } catch (e) {
+    console.error(e);
+    setStatus('#st-trend', `Failed: ${e.message}`, true);
+  }
+}
+
+// ---------- Filter form (built from SECTIONS) ----------
+
+function buildForm(id) {
+  const s = SECTIONS[id];
+  const form = document.getElementById('f-' + id);
+  const ranges = s.ranges.map(r => `
+    <label class="range">${r.label}
+      <div class="pair">
+        <input name="${r.key}_min" type="number" step="${r.step}" placeholder="min">
+        <input name="${r.key}_max" type="number" step="${r.step}" placeholder="max">
+      </div>
+    </label>`).join('');
+  form.innerHTML = `
+    <label>Search<input name="q" placeholder="Symbol, name or address"></label>
+    ${ranges}
+    <label>Sort by<select name="sort">${s.sorts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
+    <div class="preset-bar">
+      <label>Saved presets<select name="preset_pick"></select></label>
+      <button type="button" class="ghost" data-act="save">Save as preset</button>
+      <button type="button" class="ghost" data-act="delete">Delete preset</button>
+      <button type="button" class="ghost" data-act="reset">Reset filters</button>
+    </div>`;
+  refreshPresetList(id);
+}
+
+// Current field values, without the preset picker itself.
+function currentValues(id) {
+  const vals = {};
+  for (const [k, v] of new FormData(document.getElementById('f-' + id))) {
+    if (k !== 'preset_pick') vals[k] = v;
+  }
+  return vals;
+}
+
+function readFilters(id) {
+  const s = SECTIONS[id];
+  const f = currentValues(id);
+  const num = v => (v === '' || v == null) ? null : Number(v);
+  return {
+    q: (f.q || '').trim().toLowerCase(),
+    sort: f.sort,
+    ranges: s.ranges.map(r => ({ ...r, min: num(f[r.key + '_min']), max: num(f[r.key + '_max'])}))
+  };
+}
+
+// ---------- Presets (localStorage, per section) ----------
+
+const presetKey = id => 'solanaScanner.presets.' + id;
+
+function loadPresets(id) {
+  try { return JSON.parse(localStorage.getItem(presetKey(id)) || '{}'); }
+  catch (e) { return {}; }
+}
+
+function storePresets(id, presets) {
+  try { localStorage.setItem(presetKey(id), JSON.stringify(presets)); }
+  catch (e) { /* storage blocked: presets just won't persist */ }
+}
+
+function refreshPresetList(id, selectName = '') {
+  const sel = document.querySelector(`#f-${id} [name=preset_pick]`);
+  const names = Object.keys(loadPresets(id));
+  sel.innerHTML = '<option value="">— choose —</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = selectName && names.includes(selectName) ? selectName : '';
+}
+
+function applyValues(id, vals) {
+  const form = document.getElementById('f-' + id);
+  form.querySelectorAll('[name]').forEach(el => {
+    if (el.name === 'preset_pick') return;
+    el.value = vals[el.name] ?? '';
+  });
+}
+
+function savePreset(id) {
+  const name = (prompt('Name this preset:') || '').trim();
+  if (!name) return;
+  const presets = loadPresets(id);
+  presets[name] = currentValues(id);
+  storePresets(id, presets);
+  refreshPresetList(id, name);
+  render(id);
+}
+
+function deletePreset(id) {
+  const sel = document.querySelector(`#f-${id} [name=preset_pick]`);
+  if (!sel.value) return;
+  const presets = loadPresets(id);
+  delete presets[sel.value];
+  storePresets(id, presets);
+  refreshPresetList(id);
+  render(id);
+}
+
+function loadPreset(id) {
+  const name = document.querySelector(`#f-${id} [name=preset_pick]`).value;
+  if (!name) return;
+  const presets = loadPresets(id);
+  if (presets[name]) applyValues(id, presets[name]);
+  render(id);
+}
+
+// ---------- Scoring, rows, rendering ----------
+
+function risk(p) {
+  const flags = [];
+  const liq = p.liquidity?.usd || 0;
+  const h1 = p.txns?.h1 || { buys: 0, sells: 0 };
+  const total = h1.buys + h1.sells;
+  if (liq < 10000) flags.push('Low liquidity');
+  if (ageH(p) < 1) flags.push('Under 1h old');
+  if (total > 0 && h1.sells / total > 0.6) flags.push('Sell-heavy last hour');
+  if (liq > 0 && (p.volume?.h1 || 0) / liq > 5) flags.push('Volume far above liquidity');
+  return flags;
+}
+
+function row(p) {
+  const flags = risk(p);
+  const cls = flags.length >= 2 ? 'bad' : flags.length === 1 ? 'warn' : 'good';
+  const label = flags.length ? flags.length + ' flag' + (flags.length > 1 ? 's' : '') : 'Clean';
+  const h1 = p.priceChange?.h1;
+  const addr = p.baseToken.address;
+  const img = p.info?.imageUrl
+    ? `<img src="${esc(p.info.imageUrl)}" alt="" loading="lazy">`
+    : '<span class="ph"></span>';
+  return `<tr>
+    <td><div class="tok">${img}<div><b>${esc(p.baseToken.symbol)}</b><small>${esc(p.baseToken.name)}</small>
+      <button class="copy" data-addr="${esc(addr)}" data-label="${esc(shortAddr(addr))}" title="Copy full contract address">${esc(shortAddr(addr))} ⧉</button>
+    </div></div></td>
+    <td>${p.priceUsd ? '$' + Number(p.priceUsd).toPrecision(3) : '–'}</td>
+    <td class="${(h1 || 0) >= 0 ? 'up' : 'dn'}">${pct(h1)}</td>
+    <td>${usd(p.volume?.h1)}</td>
+    <td>${usd(p.liquidity?.usd)}</td>
+    <td>${usd(p.marketCap || p.fdv)}</td>
+    <td>${ageLabel(p.pairCreatedAt)}</td>
+    <td><span class="risk ${cls}" title="${esc(flags.join(' · ') || 'No flags')}">${label}</span></td>
+    <td><a href="${esc(p.url)}" target="_blank" rel="noopener">Chart</a></td>
+  </tr>`;
+}
+
+// Keep a pair only if every range filter passes (min and max both optional).
+function apply(id) {
+  const f = readFilters(id);
+  const sort = SECTIONS[id].sorts.find(x => x[0] === f.sort) || SECTIONS[id].sorts[0];
+  const out = state[id].filter(p => {
+    if (f.q && !`${p.baseToken.symbol} ${p.baseToken.name} ${p.baseToken.address}`.toLowerCase().includes(f.q)) return false;
+    return f.ranges.every(r => {
+      const v = r.get(p);
+      if (r.min != null && v < r.min) return false;
+      if (r.max != null && v > r.max) return false;
+      return true;
+    });
+  });
+  out.sort((a, b) => sort[2](b) - sort[2](a));
+  return out;
+}
+
+function render(id) {
+  const rows = apply(id);
+  $('#b-' + id).innerHTML = rows.slice(0, 100).map(row).join('') ||
+    '<tr><td colspan="9" class="empty">No pairs match these filters.</td></tr>';
+  $('#c-' + id).textContent = `${rows.length} of ${state[id].length} shown`;
+}
+
+// ---------- Copy contract address ----------
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    // Fallback for browsers or contexts where the Clipboard API is blocked
+    try {
+      const t = document.createElement('textarea');
+      t.value = text;
+      t.setAttribute('readonly', '');
+      t.style.position = 'fixed';
+      t.style.opacity = '0';
+      document.body.appendChild(t);
+      t.select();
+      const ok = document.execCommand('copy');
+      t.remove();
+      return ok;
+    } catch (e2) {
+      return false;
+    }
+  }
+}
+
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('button.copy');
+  if (!btn) return;
+  const ok = await copyText(btn.dataset.addr);
+  btn.textContent = ok ? 'Copied ✓' : 'Copy failed';
+  setTimeout(() => { btn.textContent = btn.dataset.label + ' ⧉'; }, 1500);
+});
+
+// ---------- Wiring ----------
+
+for (const id of Object.keys(SECTIONS)) {
+  buildForm(id);
+  const form = document.getElementById('f-' + id);
+  form.addEventListener('input', () => render(id));
+  form.addEventListener('change', e => {
+    if (e.target.name === 'preset_pick') loadPreset(id);
+    else render(id);
+  });
+  form.addEventListener('click', e => {
+    const act = e.target.dataset.act;
+    if (act === 'save') savePreset(id);
+    if (act === 'delete') deletePreset(id);
+    if (act === 'reset') { form.reset(); form.querySelector('[name=preset_pick]').value = ''; render(id); }
+  });
+}
+
+$('#refresh-all').addEventListener('click', () => { loadLaunch(); loadTrend(); });
+
+async function init() {
+  $('#global-status').textContent = 'Loading both sections…';
+  await Promise.all([loadLaunch(), loadTrend()]);
+  $('#global-status').textContent = 'Data from DexScreener · Solana · auto-refresh every 50s';
+  setInterval(() => { loadLaunch(); loadTrend(); }, REFRESH_MS);
+}
+
+init().catch(e => {
+  console.error('Page load failed:', e);
+  $('#global-status').textContent = 'Error loading data. Please try refresh.';
+});
+</script>
+</body>
+</html>
